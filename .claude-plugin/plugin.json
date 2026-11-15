@@ -1,0 +1,12 @@
+{
+  "name": "project-base",
+  "displayName": "Project Base",
+  "version": "0.1.0",
+  "description": "Seed a new repository, or audit an existing one, with a lean Claude Code setup: project workflow, ADRs, topic cards, focused agents, and token-saving hooks.",
+  "author": {
+    "name": "FraudEG"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/fraudeg/claude_project_base_management",
+  "keywords": ["project-setup", "workflow", "adr", "agents", "hooks", "audit"]
+}

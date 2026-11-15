@@ -1,0 +1,16 @@
+{
+  "name": "project-base",
+  "owner": {
+    "name": "FraudEG"
+  },
+  "metadata": {
+    "description": "Marketplace for the project-base plugin: seed or audit a repository with a lean Claude Code setup."
+  },
+  "plugins": [
+    {
+      "name": "project-base",
+      "source": "./",
+      "description": "Seed a new repository, or audit an existing one, with a lean Claude Code setup: project workflow, ADRs, topic cards, focused agents, and token-saving hooks."
+    }
+  ]
+}
