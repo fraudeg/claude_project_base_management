@@ -90,7 +90,7 @@ Reads the hook input (`cwd`, `session_id`, `tool_name`, `tool_input`) from stdin
 - **Edits in the main checkout** (`Edit`, `Write`, `NotebookEdit` whose file is in the main checkout): `block` → deny
   with the reason "This is the main checkout. Start a worktree: claude -w <topic> -n <topic>"; `warn` → allow with that
   text as context; `off` → nothing.
-- **Bash in the main checkout**: the same treatment for `git commit`, `git checkout -b`, `git switch`, `git merge`,
+- **Bash in the main checkout**: the same treatment for `git commit`, `git checkout -b`, `git checkout <branch>` (also `-` and `--detach`; `git checkout <file>`, `-- <path>` and `.` pass), `git switch`, `git merge`,
   `git rebase`, `git cherry-pick`, `git reset` (the commands that move the shared index or HEAD). Read-only git and
   everything else pass. Matching is on the command text, after splitting on `&&`, `;`, `|`.
 - **Shared resources** (any checkout): an edit to a path under a `shared` entry that another live session's board file
@@ -136,6 +136,16 @@ read from the Claude Code hooks docs before writing it; if the docs do not settl
 - `seed`: step 2 asks question 1; on yes it runs the rest of `parallel.md`.
 - `check_seeded.py`: if `parallel` is present, `worktrees_dir` must be gitignored.
 
+## Amendments (2026-11-25, to match what shipped)
+
+- Claims are dropped on exit, `/clear` and `/resume`; a SessionStart re-fire within a live session (compact) keeps them.
+- `seed` takes question 1 from `parallel=yes|no`; absent, it proceeds with no and offers it in its final message.
+- The setup writes the `parallel` key last (after `.gitignore`, `.worktreeinclude` and the `CLAUDE.md` line), and `seed` runs `check_seeded` before applying it.
+- The guard never returns "allow": `warn` and the claim reminder only add context.
+- `git -C <dir>` and `cd` targets are judged in their own repository, with that repository's config (none: ignored).
+- Board `name` comes from `claude -n` (`session_title`).
+- At SessionEnd, if the cwd no longer finds a repository, the board is located from `CLAUDE_PROJECT_DIR` to delete only this session's own file.
+
 ## Non-goals
 
 - No lock that survives a crash or expires on its own; no server; no MCP tools in every session's context.
@@ -154,6 +164,6 @@ read from the Claude Code hooks docs before writing it; if the docs do not settl
    main checkout.
 2. `git commit` inside a chained command (`git add x && git commit -m y`) is caught; `git log` and `git status` are not.
 3. Missing or malformed `project-base.json`, a non-git directory, or a broken board file: exit 0, no output.
-4. SessionStart on `resume` keeps the session's claims.
+4. SessionStart re-fired within a live session (compact) keeps the session's claims; exit, `/clear` and `/resume` drop them (amended 2026-11-25).
 5. Hook paths: `${CLAUDE_PROJECT_DIR}` stays at the main root; scripts use the input `cwd`, never the env var, to find
    the worktree.

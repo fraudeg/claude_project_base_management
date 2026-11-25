@@ -28,7 +28,23 @@ An audit reads an existing graphify graph (`graphify-out/`) when there is one, n
 
 - `/project-base:checkpoint` writes or updates `docs/projects/<project>/tasks/NNN-<slug>.md` for a task that outgrew one session: a `Status:` line (`in-progress`, `blocked`, `done`), goal, done so far, files touched, the exact next step, how to verify, open questions. A fresh session or agent resumes from that file alone. Small tasks stay a line in `plan.md`.
 - A hook lists open tasks when the context is compacted (the summary tells the resumed session to update them) and when the session ends (shown to you).
+- `/project-base:claim <path> [release]` claims a shared path for parallel sessions (see below).
 - `/project-base:measure` takes a new `/usage` and `/context` paste, stores it verbatim in the project's `log.md` and writes a short before/after table against the baseline.
+
+## Parallel sessions
+
+Several Claude Code sessions can work on one repository without overwriting each other. There is no separate command: `seed` takes question 1 from `parallel=yes|no` (without it, seed proceeds as no and offers it in its final message), runs the rest after the bootstrap project so the `parallel` key is written last, and `audit` flags a repository that shows parallel work with no `parallel` key and adds a plan task to answer the same questions (`skills/seed/parallel.md`). The questions: will several sessions work here at once (`parallel=yes|no`; no writes nothing more), where worktrees live (default `.claude/worktrees`), which gitignored files every worktree needs (`.worktreeinclude`), main checkout `block`, `warn` or `off` (default `block`), and which shared paths must be claimed before editing (default none). The answers go in the `parallel` key of `.claude/project-base.json`, never overwriting an existing one.
+
+Start each session in its own worktree, named for its work: `claude -w <topic> -n <topic>`.
+
+- **Guard** (PreToolUse on Edit, Write, NotebookEdit and Bash). It checks the Edit, Write and NotebookEdit tools and the git commands below; other Bash (redirects, `sed -i`, other git commands) is not checked. In the main checkout it denies edits and these git commands: `commit`, `merge`, `rebase`, `cherry-pick`, `reset`, `switch`, `checkout -b`, `checkout -B` and a branch switch with `checkout` (`checkout -`, `checkout --detach` or `checkout <existing local branch>`; `checkout <file>`, `checkout -- <path>` and `checkout .` pass) (also inside `a && b`; `git log` and `git status` pass). `warn` only adds context; `off` disables this main-checkout rule. Any linked worktree is not the main checkout, and nothing under `worktrees_dir` is. The claim rule is separate and does not depend on `main_checkout`: for a path covered by `parallel.shared`, an edit is denied in any mode when another session claims it (the message names the holder, its branch and says to use `SendMessage`) and gets a reminder to claim it when nobody does.
+- **Board** (SessionStart and SessionEnd). Each session has a file in the main checkout's `.git/project-base-board/`. At start a session sees the others (name, branch, directory, claims, age, `stale` after 24 hours) and the worktree list. Files of sessions idle more than 7 days are pruned. A session's file is deleted when it ends, so **claims last until the session ends, is cleared (`/clear`) or resumed; claim again after those**.
+- **Landing work while the main checkout is blocked.** Commit in the worktree, then merge from outside Claude (a terminal); or push the worktree branch and open a PR; or set `main_checkout` to `warn`.
+- `/project-base:claim <path> [release]` records a claim on the board after checking that no other session holds an overlapping one. On a conflict it stops and points to the holder.
+- Messaging: sessions talk through `SendMessage` (the board shows each session's `name`, set at start from `claude -n <name>`; `/project-base:claim` sets it only if it is still empty) and `ListAgents`. Nothing else is needed.
+- **Custom worktree location.** If `worktrees_dir` is not `.claude/worktrees`, seed copies `scripts/worktree_hook.py` to `.claude/hooks/` and merges `WorktreeCreate` and `WorktreeRemove` entries into `.claude/settings.json` after showing you the diff. The hook branches from the main checkout's HEAD, copies the files `.worktreeinclude` lists, and on removal keeps a dirty worktree and an unmerged branch. It replaces Claude Code's own worktree logic, and `git worktree add` from Bash does not run it.
+
+MCP Agent Mail is not needed. Consider it if, after a few weeks of the board, sessions still collide on the same files: its one missing piece here is reservations that expire on their own.
 
 ## What gets installed
 
@@ -46,11 +62,14 @@ The plugin itself carries the skills, the hooks and the agent sources. Seed copi
   | `test_command` | the project's test command, used by `test-runner` |
   | `test_command_patterns` | regexes the trim hook matches against a Bash command. **Update it whenever you change the test command**, or trimming silently stops |
   | `docs_root` | where the docs live, default `docs` |
+  | `parallel` | set by the parallel-sessions questions: `worktrees_dir`, `main_checkout` (`block`, `warn`, `off`), `shared` (paths to claim). Absent: the hooks do nothing |
 
 Hooks, shipped by the plugin:
 
 - **Test-output trim** (PreToolUse on Bash): when the command matches `test_command_patterns` (defaults cover common runners when there is no config file), it keeps the last 100 lines and the exit code.
 - **Checkpoint reminder** (PreCompact and SessionEnd): lists every task file with `Status: in-progress`. On PreCompact the list goes into the compaction summary; on SessionEnd it is shown to you, since Claude can no longer act.
+- **Parallel guard** (PreToolUse on Edit, Write, NotebookEdit and Bash): with a `parallel` key, denies edits and git writes in the main checkout and edits to a shared path someone else claims. Without the key it does nothing.
+- **Session board** (SessionStart and SessionEnd): writes and removes the session's board file, and at start lists the other sessions and the worktrees.
 
 Knowledge skills load on demand: `project-workflow`, `write-adr`, `write-topic-card`, `write-rule`, `criticality-gate`, `harness-ops`.
 
@@ -79,6 +98,11 @@ Seed recommends two plugins to every collaborator of the repository. Credit to t
 - The hook rewrites the test command (it adds `tail` and `pipefail`). A rewritten command may not match a permission allowlist entry written for the original.
 - `docs_root` other than `docs` is honored only by the hooks and the agents. Seed writes under `docs/` and the skills use that path.
 - Maintainers: `python3 scripts/check_neutral.py .` checks the tree for names that must not appear. The names go in a git-ignored `.neutral-denylist` at the repository root (one per line, `#` comments allowed) and are never committed; with no terms the check only warns and exits 0.
+- Parallel guard: Bash is judged by the session's directory, following `cd` and `git -C <dir>` (relative to the current directory; several `-C` compose), each in its own repository with that repository's `parallel` config. Only `--git-dir`/`--work-tree` and some shell forms (unbalanced quotes, `cd $VAR`, `cd ~`, `-C $VAR`) are not caught: it fails open. `git pull`, `stash`, `revert` and `am` are not checked.
+- The guard never approves anything: it only denies or adds context (`warn` mode, the claim reminder), so the normal permission prompt still applies. A claim conflict on a shared path is denied whatever `main_checkout` says.
+- The reminder for an unclaimed shared path reaches Claude alongside the tool result, after that first edit has been made. It prompts a claim for later edits and does not stop the first one. A claim held by another session does deny.
+- Claude Code's own worktree isolation refuses complex Bash that touches `.git` from inside a worktree, so the claim skill runs one plain command per step.
+- Claims do not survive an exit followed by `--resume`: claim again. Age and staleness come from the board file's modification time, so a live session idle for more than 7 days without a start or claim is pruned.
 - The unit tests run anywhere (`python3 -m unittest discover -s tests`). The smoke tests (`tests/smoke_seed.sh`, `tests/smoke_audit.sh`) call `claude` and need an account that can run `--permission-mode auto`; they are paid runs.
 
 ## Contributing

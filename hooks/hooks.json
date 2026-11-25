@@ -6,6 +6,12 @@
         "hooks": [
           { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/trim_test_output.py\"" }
         ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit|Bash",
+        "hooks": [
+          { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/parallel_guard.py\"" }
+        ]
       }
     ],
     "PreCompact": [
@@ -15,10 +21,18 @@
         ]
       }
     ],
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/session_board.py\" start" }
+        ]
+      }
+    ],
     "SessionEnd": [
       {
         "hooks": [
-          { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/checkpoint_reminder.py\"" }
+          { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/checkpoint_reminder.py\"" },
+          { "type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/session_board.py\" end" }
         ]
       }
     ]

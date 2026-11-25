@@ -30,7 +30,23 @@ Si hay un grafo de graphify (`graphify-out/`), el audit lo lee, pero nunca lo co
 - Un hook lista las tareas abiertas en dos momentos:
   - Al compactar el contexto: el resumen le dice a la sesión retomada que las actualice.
   - Al terminar la sesión: te las muestra a ti.
+- `/project-base:claim <ruta> [release]` reclama una ruta compartida para sesiones en paralelo (ver abajo).
 - `/project-base:measure` recibe un nuevo pegado de `/usage` y `/context`, lo guarda literal en el `log.md` del proyecto y escribe una tabla corta de antes/después contra la línea base.
+
+## Sesiones en paralelo
+
+Varias sesiones de Claude Code pueden trabajar en un repositorio sin pisarse. No hay un comando aparte: `seed` toma la pregunta 1 de `parallel=yes|no` (sin ella, seed sigue como no y la ofrece en su mensaje final), ejecuta el resto después del proyecto bootstrap para que la clave `parallel` se escriba al final, y `audit` marca un repositorio que muestra trabajo en paralelo sin clave `parallel` y añade una tarea al plan para responder las mismas preguntas (`skills/seed/parallel.md`). Las preguntas: si varias sesiones trabajarán a la vez (`parallel=yes|no`; con no, no se escribe nada más), dónde viven los worktrees (por defecto `.claude/worktrees`), qué archivos ignorados por git necesita cada worktree (`.worktreeinclude`), checkout principal en `block`, `warn` u `off` (por defecto `block`), y qué rutas compartidas hay que reclamar antes de editar (por defecto ninguna). Las respuestas van en la clave `parallel` de `.claude/project-base.json`, sin sobrescribir una que ya exista.
+
+Empieza cada sesión en su propio worktree, con el nombre de su trabajo: `claude -w <tema> -n <tema>`.
+
+- **Guard** (PreToolUse sobre Edit, Write, NotebookEdit y Bash). Revisa las herramientas Edit, Write y NotebookEdit y los comandos git de abajo; el resto de Bash (redirecciones, `sed -i`, otros comandos git) no se revisa. En el checkout principal deniega las ediciones y estos comandos git: `commit`, `merge`, `rebase`, `cherry-pick`, `reset`, `switch`, `checkout -b`, `checkout -B` y el cambio de rama con `checkout` (`checkout -`, `checkout --detach` o `checkout <rama local existente>`; `checkout <archivo>`, `checkout -- <ruta>` y `checkout .` pasan) (también dentro de `a && b`; `git log` y `git status` pasan). `warn` solo añade contexto; `off` desactiva esta regla del checkout principal. Cualquier worktree enlazado no es el checkout principal, y nada bajo `worktrees_dir` lo es. La regla de claims es aparte y no depende de `main_checkout`: para una ruta cubierta por `parallel.shared`, la edición se deniega en cualquier modo si otra sesión la reclama (el mensaje nombra al titular y su rama, y dice que uses `SendMessage`) y, si nadie la reclama, recibe un recordatorio para reclamarla.
+- **Tablero** (SessionStart y SessionEnd). Cada sesión tiene un archivo en `.git/project-base-board/` del checkout principal. Al empezar, la sesión ve a las demás (nombre, rama, directorio, claims, antigüedad, `stale` pasadas 24 horas) y la lista de worktrees. Los archivos de sesiones inactivas más de 7 días se eliminan. El archivo de una sesión se borra al terminar, así que **los claims duran hasta que la sesión termina, se limpia (`/clear`) o se retoma; reclama de nuevo después**.
+- **Cómo integrar trabajo con el checkout principal bloqueado.** Haz commit en el worktree y fusiona desde fuera de Claude (una terminal); o sube la rama del worktree y abre un PR; o pon `main_checkout` en `warn`.
+- `/project-base:claim <ruta> [release]` registra un claim en el tablero tras comprobar que ninguna otra sesión tiene uno que se solape. Si hay conflicto, se detiene y señala al titular.
+- Mensajería: las sesiones se hablan con `SendMessage` (el tablero muestra el `name` de cada una, fijado al empezar con `claude -n <nombre>`; `/project-base:claim` solo lo fija si sigue vacío) y `ListAgents`. No hace falta nada más.
+- **Ubicación personalizada de worktrees.** Si `worktrees_dir` no es `.claude/worktrees`, seed copia `scripts/worktree_hook.py` a `.claude/hooks/` y fusiona entradas `WorktreeCreate` y `WorktreeRemove` en `.claude/settings.json`, después de mostrarte el diff. El hook parte del HEAD del checkout principal, copia los archivos que lista `.worktreeinclude` y, al borrar, conserva un worktree con cambios y una rama sin fusionar. Reemplaza la lógica propia de Claude Code para worktrees, y `git worktree add` desde Bash no lo ejecuta.
+
+No hace falta MCP Agent Mail. Considéralo si, tras unas semanas con el tablero, las sesiones siguen chocando en los mismos archivos: lo único que aporta y aquí falta son reservas que expiran solas.
 
 ## Qué se instala
 
@@ -48,11 +64,14 @@ El plugin trae las skills, los hooks y los agentes originales. Seed copia el res
   | `test_command` | el comando de tests del proyecto, que usa `test-runner` |
   | `test_command_patterns` | las regex que el hook de recorte compara con cada comando Bash. **Actualízalas siempre que cambies el comando de tests**, o el recorte deja de funcionar sin avisar |
   | `docs_root` | dónde viven los docs; por defecto `docs` |
+  | `parallel` | lo escriben las preguntas de sesiones en paralelo: `worktrees_dir`, `main_checkout` (`block`, `warn`, `off`), `shared` (rutas a reclamar). Ausente: los hooks no hacen nada |
 
 Hooks que trae el plugin:
 
 - **Recorte de salida de tests** (PreToolUse sobre Bash): cuando el comando coincide con `test_command_patterns`, se queda con las últimas 100 líneas y con el exit code. Sin archivo de configuración, unos patrones por defecto cubren los runners comunes.
 - **Recordatorio de checkpoint** (PreCompact y SessionEnd): lista cada archivo de tarea con `Status: in-progress`. En PreCompact la lista entra en el resumen de compactación; en SessionEnd se te muestra a ti, porque Claude ya no puede actuar.
+- **Guard de paralelo** (PreToolUse sobre Edit, Write, NotebookEdit y Bash): con la clave `parallel`, deniega ediciones y escrituras git en el checkout principal, y ediciones de una ruta compartida que otra sesión reclama. Sin la clave no hace nada.
+- **Tablero de sesiones** (SessionStart y SessionEnd): escribe y borra el archivo de tablero de la sesión y, al empezar, lista las demás sesiones y los worktrees.
 
 Las skills de conocimiento se cargan bajo demanda: `project-workflow`, `write-adr`, `write-topic-card`, `write-rule`, `criticality-gate` y `harness-ops`.
 
@@ -81,6 +100,11 @@ Seed recomienda dos plugins a cada colaborador del repositorio. El mérito es de
 - El hook reescribe el comando de tests (le añade `tail` y `pipefail`), así que puede dejar de coincidir con una regla de permisos escrita para el comando original.
 - Un `docs_root` distinto de `docs` solo lo respetan los hooks y los agentes. Seed escribe bajo `docs/` y las skills usan esa ruta.
 - Para mantenedores: `python3 scripts/check_neutral.py .` revisa que no aparezcan nombres prohibidos. Los nombres van en un archivo `.neutral-denylist` en la raíz, ignorado por git (uno por línea, se permiten comentarios con `#`), y nunca se commitean. Sin términos, el check solo avisa y sale con 0.
+- Guard de paralelo: Bash se juzga por el directorio de la sesión, siguiendo `cd` y `git -C <dir>` (relativo al directorio actual; varios `-C` se componen), cada uno en su propio repositorio con la configuración `parallel` de ese repositorio. Solo `--git-dir`/`--work-tree` y algunas formas de shell (comillas sin cerrar, `cd $VAR`, `cd ~`, `-C $VAR`) no se detectan: falla abierto. `git pull`, `stash`, `revert` y `am` no se revisan.
+- El guard nunca aprueba nada: solo deniega o añade contexto (modo `warn`, recordatorio de claim), así que el aviso normal de permisos sigue aplicando. Un conflicto de claim sobre una ruta compartida se deniega diga lo que diga `main_checkout`.
+- El recordatorio de una ruta compartida sin reclamar le llega a Claude junto al resultado de la herramienta, es decir, después de esa primera edición. Pide reclamar para las siguientes y no detiene la primera. Un claim de otra sesión sí deniega.
+- El aislamiento de worktrees de Claude Code rechaza Bash complejo que toque `.git` desde dentro de un worktree, así que la skill claim ejecuta un comando simple por paso.
+- Los claims no sobreviven a una salida seguida de `--resume`: reclama de nuevo. La antigüedad y el `stale` salen de la fecha de modificación del archivo del tablero, así que una sesión viva inactiva más de 7 días sin un inicio o un claim se elimina.
 - Los tests unitarios corren en cualquier sitio (`python3 -m unittest discover -s tests`). Los smoke tests (`tests/smoke_seed.sh` y `tests/smoke_audit.sh`) llaman a `claude`, necesitan una cuenta que pueda usar `--permission-mode auto` y tienen coste.
 
 ## Contribuir

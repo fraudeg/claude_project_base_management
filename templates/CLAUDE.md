@@ -59,6 +59,10 @@ When a superpowers skill (`subagent-driven-development`, `dispatching-parallel-a
 implementer or a reviewer, dispatch `implementer` or `reviewer` instead of `general-purpose`. Subagents run on
 `sonnet` (`CLAUDE_CODE_SUBAGENT_MODEL` in `.claude/settings.json`).
 
+<!-- parallel:start -->
+Edit only from a worktree: `claude -w <topic> -n <topic>`. Claim a shared resource with `/project-base:claim` before editing it.
+<!-- parallel:end -->
+
 ## Where documents go
 
 - `docs/README.md`: the map of all documents. Start there.

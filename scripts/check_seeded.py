@@ -9,7 +9,9 @@ Prints each problem and exits 1 if there is any.
 from __future__ import annotations
 
 import os
+import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -62,6 +64,29 @@ def problems(root: Path) -> list[str]:
         if markers:
             rel = path.relative_to(root).as_posix()
             found.append(f"{rel}: unfilled marker(s) {', '.join(sorted(set(markers)))}")
+    found += parallel_problems(root)
+    return found
+
+
+def parallel_problems(root: Path) -> list[str]:
+    """A left-over `<!-- parallel:` marker in CLAUDE.md; with a `parallel` key, worktrees_dir must be gitignored."""
+    found = []
+    try:
+        if "<!-- parallel:" in (root / "CLAUDE.md").read_text(encoding="utf-8"):
+            found.append("CLAUDE.md: left-over `<!-- parallel:` marker")
+    except (OSError, UnicodeDecodeError):
+        pass
+    try:
+        cfg = json.loads((root / ".claude" / "project-base.json").read_text(encoding="utf-8")).get("parallel")
+        if isinstance(cfg, dict):
+            d = cfg.get("worktrees_dir")
+            if not isinstance(d, str) or not d:
+                d = ".claude/worktrees"
+            r = subprocess.run(["git", "-C", str(root), "check-ignore", "-q", f"{d}/x"], capture_output=True)
+            if r.returncode == 1:  # 0 = ignored; 128 or other = not a repo / git failed: skip
+                found.append(f"{d}: worktrees_dir is not gitignored")
+    except (OSError, ValueError, AttributeError, TypeError):
+        pass
     return found
 
 

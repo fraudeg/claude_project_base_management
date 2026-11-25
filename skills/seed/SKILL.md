@@ -2,12 +2,12 @@
 name: seed
 description: Seed an empty or new repository with project-base (CLAUDE.md, agents, rules, settings, docs map, bootstrap project). Never overwrites; stops if CLAUDE.md, .claude/agents/ or docs/projects/ exists.
 disable-model-invocation: true
-argument-hint: name=... purpose=... language=... test_command=...
+argument-hint: name=... purpose=... language=... test_command=... parallel=yes|no
 ---
 
 # Seed a repository
 
-Arguments: `$ARGUMENTS` (`name=… purpose=… language=… test_command=…`, values may be quoted).
+Arguments: `$ARGUMENTS` (`name=… purpose=… language=… test_command=… parallel=yes|no`, values may be quoted).
 
 Work in the current directory (the repository root). Templates are in `${CLAUDE_PLUGIN_ROOT}/templates/`, agents in `${CLAUDE_PLUGIN_ROOT}/agents/`. Never overwrite a file, never commit, never stage.
 
@@ -29,6 +29,8 @@ EOF
 ## 2. Inputs
 
 Take `project_name`, `one_line_purpose`, `language`, `test_command` from the arguments (`name`, `purpose`, `language`, `test_command`). For one that is missing, infer it when the repo shows it (name: the directory name; language and test command: the manifest, e.g. `pyproject.toml` means python and `pytest`, `package.json` its `scripts.test`) and say what you inferred. Ask only for what is still unknown. If you cannot ask (non-interactive run), stop and name the missing argument. Never invent a test command.
+
+Question 1 (parallel sessions): take `parallel` from the `parallel=yes|no` argument. If the argument is absent, never ask, stop or wait: proceed with `parallel` = no and offer it in the final message (step 8).
 
 Get today's date with `date +%Y-%m-%d`; it is `date` below.
 
@@ -61,15 +63,19 @@ python3 -c 'import json, re, sys; c = sys.argv[1]; json.dump({"test_command": c,
 
 Same shape as `${CLAUDE_PLUGIN_ROOT}/templates/project-base.json`; do not fill that template by hand.
 
+If `parallel` is yes, questions 2-5 run in step 8, after the check (see there): the `parallel` key must be written last, because it makes the guard deny edits in the main checkout.
+
 ## 6. Fill the templates
 
 Read each template, then write the target with the text reproduced exactly, changing only what is listed. A target that is in `KEEP` is skipped, never rewritten. Replace every `{{marker}}`: `{{project_name}}`, `{{one_line_purpose}}`, `{{language}}`, `{{test_command}}` (the plain command, as given), `{{date}}`, `{{project_title}}`.
 
 | Target | Template | Also change | If it exists (`KEEP`) |
 |---|---|---|---|
-| `CLAUDE.md` | `${CLAUDE_PLUGIN_ROOT}/templates/CLAUDE.md` | the two placeholders below | cannot exist, step 1 refused |
+| `CLAUDE.md` | `${CLAUDE_PLUGIN_ROOT}/templates/CLAUDE.md` | the two placeholders below, and the parallel block | cannot exist, step 1 refused |
 | `docs/README.md` | `${CLAUDE_PLUGIN_ROOT}/templates/docs-README.md` | nothing | skip |
 | `docs/projects/README.md` | `${CLAUDE_PLUGIN_ROOT}/templates/projects-README.md` | the Index line below | cannot exist, step 1 refused |
+
+`CLAUDE.md` has a block between `<!-- parallel:start -->` and `<!-- parallel:end -->`. If `parallel` is yes, keep the line inside and delete the two marker lines; otherwise delete the whole block, markers included.
 
 `CLAUDE.md` has two placeholders that are not markers. Fill them from what you can see (`ls` of the top level); otherwise leave an explicit TODO, never a made-up path:
 
@@ -92,7 +98,7 @@ Create `docs/projects/<date>-bootstrap/` from `${CLAUDE_PLUGIN_ROOT}/templates/p
 - `decisions.md`: copy unchanged (`cp`).
 - `log.md`: keep the template, then under `## <date>` add what was seeded (list the files written and any kept) and the test command.
 - `plan.md`: replace the placeholder task with these, and write the Handoff as "Seeded on <date>. Next: task 1." and Deferred as "None yet.":
-  1. Paste `/usage` and `/context` into `log.md` as the baseline (Claude cannot run them).
+  1. Paste `/usage` and `/context` into `log.md` as the baseline (Claude cannot run them). If `parallel` is yes, do it from a worktree session (`claude -w bootstrap -n bootstrap`) after the first commit, made in a terminal: the guard denies edits in the main checkout.
   2. After a week of normal work, paste both again and run `/project-base:measure`.
   3. Replace the TODO lines in `CLAUDE.md` (only if any were left).
 
@@ -102,4 +108,8 @@ Create `docs/projects/<date>-bootstrap/` from `${CLAUDE_PLUGIN_ROOT}/templates/p
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/check_seeded.py" .
 ```
 
-It lists a missing required file or a `{{marker}}` left behind. Fix the files this seed wrote, then run it again, until nothing is listed or every remaining line is about a file in `KEEP`. Do not edit a `KEEP` file: report its lines to the user instead (they are the user's file). Then run `git status --short` and tell the user: the files written, the files kept (and any check lines about them), the TODO lines still to fill, that nothing is committed, and to review and commit.
+It lists a missing required file, a `{{marker}}` or `<!-- parallel:` marker left behind, or a `worktrees_dir` that is not gitignored. Fix the files this seed wrote, then run it again, until nothing is listed or every remaining line is about a file in `KEEP`. Do not edit a `KEEP` file: report its lines to the user instead (they are the user's file).
+
+If `parallel` is yes: only now (the guard is still off during the fixes above) follow `${CLAUDE_PLUGIN_ROOT}/skills/seed/parallel.md` for questions 2-5 and what they write (it edits `.gitignore`, creates `.worktreeinclude` and writes the `parallel` key last). This is the one exception to the KEEP rule: if `.claude/project-base.json` was in `KEEP`, still add the `parallel` key to it (key only, no existing value changes) and report at the end "added the parallel key to your existing project-base.json". Non-interactive: take the defaults, and say so at the end. Then run `check_seeded.py` once more (it now also checks the `worktrees_dir` gitignore line). If it lists anything other than a file parallel.md just wrote, report it to the user instead of editing (the guard is on now).
+
+Then run `git status --short` and tell the user: the files written, the files kept (and any check lines about them), the TODO lines still to fill, that nothing is committed, and to review and commit. If the `parallel` argument was absent, also ask: "Will several sessions work on this repository at the same time? If yes, say so and I will apply `${CLAUDE_PLUGIN_ROOT}/skills/seed/parallel.md` (it writes the `parallel` key last)." (write the resolved plugin path in the message only, never in a file). If `parallel` is yes, also say: the main checkout now refuses edits and `git commit` from Claude, so make the first commit in a terminal outside Claude, and start later work with `claude -w <topic> -n <topic>`.

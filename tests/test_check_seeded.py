@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -79,6 +80,55 @@ class CheckSeededTests(unittest.TestCase):
         result = self.cli()
         self.assertEqual(result.returncode, 1)
         self.assertIn("CLAUDE.md", result.stdout)
+
+    def git(self, *args):
+        env = {**os.environ, "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"}
+        subprocess.run(["git", "-C", str(self.dir), *args], check=True, capture_output=True, env=env)
+
+    def config(self, value):
+        self.write(".claude/project-base.json", json.dumps({"parallel": value}))
+
+    def test_parallel_marker_left_in_claude_md_reported(self):
+        self.write("CLAUDE.md", "x\n<!-- parallel:start -->\nline\n")
+        found = c.problems(self.dir)
+        self.assertEqual(len(found), 1)
+        self.assertIn("CLAUDE.md", found[0])
+
+    def test_unignored_worktrees_dir_reported(self):
+        self.git("init", "-q")
+        self.config({})
+        found = c.problems(self.dir)
+        self.assertEqual(len(found), 1)
+        self.assertIn(".claude/worktrees", found[0])
+
+    def test_ignored_worktrees_dir_passes(self):
+        self.git("init", "-q")
+        self.write(".gitignore", "/.claude/worktrees/\n")
+        self.config({})
+        self.assertEqual(c.problems(self.dir), [])
+
+    def test_custom_worktrees_dir_checked(self):
+        self.git("init", "-q")
+        self.write(".gitignore", "/.claude/worktrees/\n")
+        self.config({"worktrees_dir": "wt"})
+        self.assertIn("wt", c.problems(self.dir)[0])
+
+    def test_invalid_worktrees_dir_falls_back_to_default(self):
+        self.git("init", "-q")
+        for bad in ("", 5):
+            self.config({"worktrees_dir": bad})
+            found = c.problems(self.dir)
+            self.assertEqual(len(found), 1)
+            self.assertIn(".claude/worktrees", found[0])
+
+    def test_not_a_git_repo_skips_check(self):
+        self.config({})
+        self.assertEqual(c.problems(self.dir), [])
+
+    def test_no_parallel_key_skips_check(self):
+        self.git("init", "-q")
+        self.write(".claude/project-base.json", "{}")
+        self.assertEqual(c.problems(self.dir), [])
 
 
 class TemplateTests(unittest.TestCase):
