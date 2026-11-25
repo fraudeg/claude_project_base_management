@@ -155,7 +155,7 @@ only, nothing committed.
 - After an independent review of these decisions: per-repository judgment of `cd`/`git -C` targets, `git checkout
   <branch>` denied in the main checkout, `design.md` amended. See `log.md`.
 
-Committed and pushed on 2026-11-25. Next: tag `v0.2.0` when the owner decides, then phase 2 below. Not run live:
+Released as `v0.2.0` on 2026-11-25 (tag and GitHub release). Next: phase 2 below. Not run live:
 `warn` mode and the seed offer path (a "yes" after the final message).
 
 After release, phase 2 (outside this repository): in each repository that uses the plugin, `/plugin update
