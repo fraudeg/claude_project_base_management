@@ -74,3 +74,10 @@ The audit wrote only its folder and found the missing `parallel` key. Three gaps
   worked blind. When other sessions exist, the start context now says to coordinate through `SendMessage` by name
   (before touching another session's branch or claims, and when finishing work others wait on). The README says to
   start sessions with `-n`, since the name is the address.
+
+## 2026-11-26: 0.2.3
+
+- The owner starts every session from the VS Code extension, where `claude -w` is not available. Such a session
+  starts in the main checkout; it now enters a worktree itself with the `EnterWorktree` tool (which follows
+  `worktree.baseRef`) before its first edit. The guard's denial and the seeded `CLAUDE.md` line both say so, which is
+  also the explicit instruction `EnterWorktree` requires.

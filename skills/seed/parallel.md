@@ -37,7 +37,7 @@ if "parallel" not in d:
 - **`worktree.baseRef`** (answer 2, when it is `head`): add it to `.claude/settings.json` with the same add-only Python as the `parallel` key (file `.claude/settings.json`, an absent file is `{}`, nested key `worktree.baseRef`; an existing different value is kept and reported). Before the `parallel` key.
 - **`.worktreeinclude`** (answer 3): never overwrite. If it exists, show the lines that would be added and let the user add them.
 - **`.gitignore`**: add a line for `worktrees_dir` (e.g. `/.claude/worktrees/`), appending, and creating the file if absent, only if `git check-ignore -q <worktrees_dir>/x` exits 1 (not ignored). Any other non-zero exit (e.g. 128, not a git repo): skip.
-- **`CLAUDE.md`**: add, if absent, under "Working with agents", the line "Edit only from a worktree: `claude -w <topic> -n <topic>`. Claim a shared resource with `/project-base:claim` before editing it." (`seed` keeps it from the template; in `audit` it is part of the plan task).
+- **`CLAUDE.md`**: add, if absent, under "Working with agents", the line "Edit only from a worktree: start with `claude -w <topic> -n <topic>`, or, in a session already open (an IDE), run `git pull --ff-only` in the main checkout and call the EnterWorktree tool with a short name for the task before the first edit. Claim a shared resource with `/project-base:claim` before editing it." (`seed` keeps it from the template; in `audit` it is part of the plan task).
 
 ## Custom worktree location
 

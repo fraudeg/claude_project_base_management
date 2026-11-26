@@ -60,7 +60,7 @@ implementer or a reviewer, dispatch `implementer` or `reviewer` instead of `gene
 `sonnet` (`CLAUDE_CODE_SUBAGENT_MODEL` in `.claude/settings.json`).
 
 <!-- parallel:start -->
-Edit only from a worktree: `claude -w <topic> -n <topic>`. Claim a shared resource with `/project-base:claim` before editing it.
+Edit only from a worktree: start with `claude -w <topic> -n <topic>`, or, in a session already open (an IDE), run `git pull --ff-only` in the main checkout and call the EnterWorktree tool with a short name for the task before the first edit. Claim a shared resource with `/project-base:claim` before editing it.
 <!-- parallel:end -->
 
 ## Where documents go

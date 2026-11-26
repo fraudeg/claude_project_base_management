@@ -273,6 +273,7 @@ class GuardTests(unittest.TestCase):
     def test_main_msg_tells_not_to_use_bash(self):
         self.assertIn("-n <topic>. Do not make this change through Bash instead.", g.MAIN_MSG)
         self.assertTrue(g.MAIN_MSG.startswith("This is the main checkout. Start a worktree: claude -w <topic> -n <topic>"))
+        self.assertIn("EnterWorktree", g.MAIN_MSG)
 
     def test_checkout_branch_switch_denied_files_pass(self):
         git(self.repo, "branch", "other-b")

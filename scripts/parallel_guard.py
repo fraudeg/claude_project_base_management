@@ -15,8 +15,9 @@ from parallel_config import _git, board_dir, is_main_checkout, load_parallel
 
 GIT_WRITES = ("commit", "merge", "rebase", "cherry-pick", "reset", "switch",
               "checkout -b", "checkout -B")
-MAIN_MSG = ("This is the main checkout. Start a worktree: claude -w <topic> -n <topic>. "
-            "Do not make this change through Bash instead.")
+MAIN_MSG = ("This is the main checkout. Start a worktree: claude -w <topic> -n <topic>; in a session already open "
+            "(an IDE), run git pull --ff-only here, call the EnterWorktree tool with a short name for this task, and "
+            "make the change there. Do not make this change through Bash instead.")
 STALE_SECS = 24 * 3600
 
 _SEPS = {";", "&", "|", "&&", "||", "(", ")"}
