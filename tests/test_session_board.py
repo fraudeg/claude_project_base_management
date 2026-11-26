@@ -126,6 +126,10 @@ class BoardTest(unittest.TestCase):
         self.assertNotIn("bad", out)
         self.assertIn(str(self.wt), out)  # from git worktree list
         self.assertEqual(out.count("stale"), 1)
+        self.assertIn("SendMessage", out)
+
+    def test_alone_no_messaging_hint(self):
+        self.assertNotIn("SendMessage", sb.start(self.inp()))
 
     def test_prunes_old_other_files_not_own(self):
         self.bd.mkdir(parents=True)

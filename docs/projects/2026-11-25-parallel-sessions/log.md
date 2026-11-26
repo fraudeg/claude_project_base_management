@@ -67,3 +67,10 @@ The audit wrote only its folder and found the missing `parallel` key. Three gaps
   now checks and offers the `.gitignore` negation.
 - The repository had its own trim hook for its test command; the audit now plans which hook stays, and documents
   `"test_command_patterns": []` to turn the plugin's off.
+
+## 2026-11-26: 0.2.2
+
+- The board showed each session the others but never told it to talk to them, so sessions saw each other and still
+  worked blind. When other sessions exist, the start context now says to coordinate through `SendMessage` by name
+  (before touching another session's branch or claims, and when finishing work others wait on). The README says to
+  start sessions with `-n`, since the name is the address.

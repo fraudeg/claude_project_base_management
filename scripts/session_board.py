@@ -89,6 +89,10 @@ def start(inp) -> str:
             continue
     out = [f"Session board file: {own}", "Record claims there via /project-base:claim; claims last until this session ends, is cleared (/clear) or resumed; claim again after those.",
            "Other sessions:" if lines else "No other sessions.", *lines]
+    if lines:
+        out.append("Coordinate with them by message: SendMessage to a session's name (ListAgents lists the names; a row "
+                   "without a name shows its id, not an address). Tell a session before you touch its branch or a path it "
+                   "claims, and tell the sessions waiting on your work when you finish it.")
     wl = _git(cwd, "worktree", "list")
     if wl:
         out += ["Worktrees:", wl]
