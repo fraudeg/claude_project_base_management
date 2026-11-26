@@ -1,7 +1,7 @@
 {
   "name": "project-base",
   "displayName": "Project Base",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Seed a new repository, or audit an existing one, with a lean Claude Code setup: project workflow, ADRs, topic cards, focused agents, and token-saving hooks.",
   "author": {
     "name": "FraudEG"

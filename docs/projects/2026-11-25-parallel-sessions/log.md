@@ -55,3 +55,15 @@ Claude Code 2.1.332, model sonnet, `--plugin-dir`, a throwaway repository with `
   gained an Amendments section for every deviation. `WorktreeRemove` script checked on worktrees made by Claude Code:
   a clean one was removed with its merged branch, a dirty one was refused and kept (a `-p` session never fires the
   hook, so it was run with the documented input). 160 unit tests OK, smoke seed 21/21.
+
+## 2026-11-26: first adoption, 0.2.1
+
+Applied to a large existing repository through `/project-base:audit` (headless, in a worktree) and its plan task.
+The audit wrote only its folder and found the missing `parallel` key. Three gaps came out of it, fixed in 0.2.1:
+
+- `worktree.baseRef`: the remote's default branch (`main`) was not the integration branch (`develop`), so native
+  `claude -w` would have started from the wrong branch. `parallel.md` now compares them and writes `head`.
+- The config was gitignored by a `.claude/*` rule, so the guard would have worked on one machine only. `parallel.md`
+  now checks and offers the `.gitignore` negation.
+- The repository had its own trim hook for its test command; the audit now plans which hook stays, and documents
+  `"test_command_patterns": []` to turn the plugin's off.

@@ -49,7 +49,7 @@ Look for exactly these. Each finding has its evidence (`path:line` or a size), t
 4. **Decisions that deserve ADRs**: choices buried in docs or comments (`grep -rniE "we decided|decided to|do not change" --exclude-dir=node_modules --exclude-dir=.git . | head -50`), costly to reverse or likely to be asked about (`project-base:write-adr`).
 5. **Areas that need topic cards**: areas that cannot be understood from one file, or that CLAUDE.md spends many lines on (`project-base:write-topic-card`).
 6. **Subagents without a model**: each `.claude/agents/*.md` with no `model:`. They inherit the session's most expensive model; say whether `env.CLAUDE_CODE_SUBAGENT_MODEL` covers them.
-7. **Missing test-output trimming**: no `.claude/project-base.json`, so the trim hook falls back to default patterns.
+7. **Missing test-output trimming**: no `.claude/project-base.json`, so the trim hook falls back to default patterns. If the repository already has its own hook trimming the test command, plan a decision on which one stays: two hooks rewriting one command race; `"test_command_patterns": []` turns the plugin's off.
 8. **Parallel sessions without isolation**: no `parallel` key in `.claude/project-base.json`, and evidence of parallel sessions: more than one `git worktree list` entry, or a `.claude/worktrees/` directory.
 
 Keep at most five of kind 4 and five of kind 5, best evidenced first. A finding below the bar is not a task: park it under Deferred with the trigger that revives it.
