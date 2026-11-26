@@ -271,7 +271,7 @@ class GuardTests(unittest.TestCase):
         m.assert_not_called()
 
     def test_main_msg_tells_not_to_use_bash(self):
-        self.assertIn("-n <topic>. Do not make this change through Bash instead.", g.MAIN_MSG)
+        self.assertTrue(g.MAIN_MSG.endswith("Do not make this change through Bash instead."))
         self.assertTrue(g.MAIN_MSG.startswith("This is the main checkout. Start a worktree: claude -w <topic> -n <topic>"))
         self.assertIn("EnterWorktree", g.MAIN_MSG)
 
